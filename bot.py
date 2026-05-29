@@ -3,21 +3,28 @@ import os, requests, feedparser, json, re, subprocess, time
 BOT_TOKEN = os.environ['BOT_TOKEN']
 CHANNEL_ID = os.environ['CHANNEL_ID']
 
-# ========== RSS ফিড লিস্ট (নতুন ফিড সহজেই যোগ করা যাবে) ==========
+# ========== RSS ফিড লিস্ট ==========
 RSS_FEEDS = [
-    # গোল্ড
     "https://www.investing.com/rss/news_gold.rss",
-    # ক্রিপ্টো
     "https://www.investing.com/rss/news_cryptocurrency.rss",
-    # অয়েল (ক্রুড অয়েল)
     "https://www.investing.com/rss/news_commodities_crude_oil.rss",
-    # সাধারণ ফিন্যান্সিয়াল নিউজ
-    "https://www.marketwatch.com/feeds/marketwatch/bulletins",  # MarketWatch
-    "https://feeds.feedburner.com/CoinDesk",                     # CoinDesk (ক্রিপ্টো)
+    "https://www.marketwatch.com/feeds/marketwatch/bulletins",
+    "https://feeds.feedburner.com/CoinDesk",
 ]
 
 LOG_FILE = "posted_articles.json"
-MAX_POSTS_PER_RUN = 5   # এক রানে সর্বোচ্চ কয়টা পোস্ট করবে
+
+# ========== গুরুত্বপূর্ণ কীওয়ার্ড (এগুলো থাকলেই কেবল পোস্ট হবে) ==========
+IMPORTANT_KEYWORDS = [
+    "gold", "xauusd", "xau", "silver",
+    "crude oil", "wti", "brent", "oil price",
+    "bitcoin", "btc", "ethereum", "eth", "crypto",
+    "fed", "federal reserve", "ecb", "central bank",
+    "interest rate", "inflation", "cpi", "gdp",
+    "market crash", "rally", "bull", "bear",
+    "stock", "dow", "s&p", "nasdaq",
+    "geopolitical", "war", "sanction"
+]
 
 def load_posted():
     try:
@@ -33,8 +40,12 @@ def save_posted(posted):
 def clean_html(raw):
     return re.sub(r'<[^>]+>', '', raw).strip()
 
+def is_important(text):
+    """টাইটেল ও সারাংশে কোনো গুরুত্বপূর্ণ কীওয়ার্ড আছে কিনা চেক"""
+    text_lower = text.lower()
+    return any(keyword in text_lower for keyword in IMPORTANT_KEYWORDS)
+
 def build_message(feed_name, title, summary):
-    """প্রতিটি ফিডের জন্য আলাদা হেডার ও হ্যাশট্যাগ"""
     if "gold" in feed_name.lower():
         header = "📰 Gold Market Update"
         tags = "#XAUUSD #GoldNews"
@@ -56,28 +67,26 @@ def build_message(feed_name, title, summary):
         f"{tags}"
     )
 
-def fetch_all_new(posted_ids):
-    """সব ফিড থেকে নতুন আর্টিকেল সংগ্রহ করবে, সর্বোচ্চ MAX_POSTS_PER_RUN টা নেবে"""
-    new_articles = []
+def fetch_first_important(posted_ids):
+    """সব ফিড থেকে প্রথম গুরুত্বপূর্ণ নিউজটা খুঁজে বের করবে (সর্বোচ্চ ১টা)"""
     for feed_url in RSS_FEEDS:
         try:
             feed = feedparser.parse(feed_url)
             feed_name = feed.feed.title if 'title' in feed.feed else feed_url
             for entry in feed.entries:
                 article_id = entry.get('id') or entry.get('link')
-                if article_id not in posted_ids:
-                    title = entry.title
-                    summary = entry.summary if hasattr(entry, 'summary') else ""
+                if article_id in posted_ids:
+                    continue
+                title = entry.title
+                summary = entry.summary if hasattr(entry, 'summary') else ""
+                combined = title + " " + summary
+                if is_important(combined):
                     clean_summary = clean_html(summary)
                     msg = build_message(feed_name, title, clean_summary)
-                    new_articles.append((article_id, msg))
-                    if len(new_articles) >= MAX_POSTS_PER_RUN:
-                        break
+                    return article_id, msg
         except Exception as e:
             print(f"⚠️ Error parsing {feed_url}: {e}")
-        if len(new_articles) >= MAX_POSTS_PER_RUN:
-            break
-    return new_articles
+    return None, None
 
 def send_to_telegram(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -104,24 +113,21 @@ def git_commit_log():
         print(f"⚠️  Git commit error: {e}")
 
 def main():
-    print("🔍 Checking multiple RSS feeds...")
+    print("🔍 Scanning for important news (max 1 post)...")
     posted = load_posted()
-    new_articles = fetch_all_new(posted)
+    article_id, msg = fetch_first_important(posted)
 
-    if new_articles:
-        print(f"Found {len(new_articles)} new articles. Posting...")
-        for article_id, msg in new_articles:
-            res = send_to_telegram(msg)
-            if res.get('ok'):
-                posted.add(article_id)
-                print(f"✅ Posted: {article_id[:50]}...")
-                time.sleep(1)  # রেট লিমিট এড়াতে একটু বিরতি
-            else:
-                print(f"❌ Failed to post: {res}")
-        save_posted(posted)
-        git_commit_log()
+    if msg:
+        res = send_to_telegram(msg)
+        if res.get('ok'):
+            posted.add(article_id)
+            save_posted(posted)
+            print("✅ Important news posted:", article_id[:60])
+            git_commit_log()
+        else:
+            print("❌ Failed to post:", res)
     else:
-        print("ℹ️  No new articles across all feeds. Skipping.")
+        print("ℹ️  No important news found. Skipping.")
 
 if __name__ == "__main__":
     main()

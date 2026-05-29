@@ -13,7 +13,8 @@ if GEMINI_API_KEY:
     model = genai.GenerativeModel('gemini-2.0-flash')
 
 def fetch_gold_data():
-    gold = yf.Ticker("GC=F")
+    # XAUUSD স্পট প্রাইসের জন্য সঠিক টিকার
+    gold = yf.Ticker("XAUUSD=X")
     hist = gold.history(period="30d", interval="1h")
     return hist
 
@@ -57,7 +58,6 @@ Explain the meaning of RSI level (overbought/oversold/neutral), the relation bet
     try:
         response = model.generate_content(prompt)
         ai_text = response.text.strip()
-        # ক্লিন Markdown বোল্ড → HTML
         ai_text = ai_text.replace("**", "<b>").replace("**", "</b>")
         return (
             f"📊 <b>XAUUSD Technical Overview (AI-Enhanced)</b>\n\n"
@@ -110,7 +110,7 @@ def send_to_telegram(text):
     }).json()
 
 def main():
-    print("🔍 Fetching XAUUSD data...")
+    print("🔍 Fetching XAUUSD spot data...")
     df = fetch_gold_data()
     indicators = compute_indicators(df)
     msg = None

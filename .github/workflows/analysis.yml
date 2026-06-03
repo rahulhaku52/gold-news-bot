@@ -2,7 +2,7 @@ name: XAUUSD Analysis Poster
 
 on:
   schedule:
-    - cron: '0 */2 * * *'   # প্রতি ৪ ঘণ্টায়
+    - cron: '0 */3 * * *'   # প্রতি ৪ ঘণ্টায়
   workflow_dispatch:
 
 jobs:

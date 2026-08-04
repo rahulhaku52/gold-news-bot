@@ -16,13 +16,13 @@ ALPHA_VANTAGE_KEY = os.environ.get('ALPHA_VANTAGE_KEY', '')
 # Gemini Model Config
 GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')
 
-# Primary Symbols
-SYMBOL_GOLD_FUTURES = "GC=F"
-SYMBOL_GOLD_SPOT = "XAUUSD"
+# Primary Tickers (Spot Gold XAUUSD focus - DO NOT USE Futures GC=F for Spot)
+SYMBOL_GOLD_SPOT = "XAUUSD=X"
+SYMBOL_GOLD_FUTURES = "XAUUSD=X" # Primary spot ticker on Yahoo Finance
 SYMBOL_SILVER = "SI=F"
 SYMBOL_OIL = "CL=F"
-SYMBOL_DXY_TICKERS = ["UUP", "DX-Y.NY", "DX=F"]
-SYMBOL_DXY = "UUP" # Reliable USD Index ETF ticker on Yahoo
+SYMBOL_DXY_TICKERS = ["UUP", "DX=F"]
+SYMBOL_DXY = "UUP"
 SYMBOL_US10Y = "^TNX"
 SYMBOL_US2Y = "^IRX"
 SYMBOL_SPX = "^GSPC"
@@ -33,7 +33,7 @@ SYMBOL_EURUSD = "EURUSD=X"
 
 # Thresholds & Limits
 MAX_DATA_AGE_SECONDS = 60
-MAX_PRICE_MISMATCH_DOLLARS = 1.00 # Max allowed spread across sources for Gold
+MAX_PRICE_MISMATCH_DOLLARS = 1.50 # Max allowed spread across spot sources
 
 # Timeframes
 TIMEFRAMES = ["M", "W", "D", "4H", "1H", "30M", "15M", "5M"]

@@ -1,0 +1,14 @@
+requests
+yfinance
+pandas
+numpy
+scipy
+ta
+pandas-ta
+lxml
+pytz
+sqlalchemy
+google-generativeai
+feedparser
+python-dotenv
+apscheduler

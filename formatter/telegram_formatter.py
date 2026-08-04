@@ -1,3 +1,16 @@
+import html
+
+def safe_html(text):
+    """Safely escapes dynamic strings for Telegram HTML parse_mode"""
+    if text is None:
+        return ""
+    s = str(text)
+    # Replace math comparison operators with human words or HTML entities
+    s = s.replace(" > ", " Above ").replace(" < ", " Below ")
+    s = s.replace(">", "&gt;").replace("<", "&lt;")
+    # Escape standard HTML special characters except if already escaped
+    return html.escape(s).replace("&amp;gt;", "&gt;").replace("&amp;lt;", "&lt;")
+
 def format_progress_bar(score):
     """Renders a progress bar string like '████████ 94'"""
     blocks = int(round(score / 12.5))
@@ -16,28 +29,29 @@ def format_trade_signal_card(
     self_audit_info
 ):
     """
-    Renders the complete 22-Layer Gold AI Bot v3.5 Telegram Signal Card.
+    Renders the complete 22-Layer Gold AI Bot v3.5 Telegram Signal Card (100% HTML Safe).
     """
-    direction = trade_plan['direction']
+    direction = safe_html(trade_plan['direction'])
     emoji = "🟢" if direction == "BUY" else "🔴"
-    grade = confluence_res['grade']
+    grade = safe_html(confluence_res['grade'])
     details = confluence_res['details']
 
-    ai_text = "\n".join([f"• {b.lstrip('•* ')}" for b in ai_bullets])
+    ai_text = "\n".join([f"• {safe_html(b.lstrip('•* '))}" for b in ai_bullets])
+    alt_scenario_safe = safe_html(alt_scenario).replace("&lt;b&gt;", "<b>").replace("&lt;/b&gt;", "</b>")
 
     msg = f"""━━━━━━━━━━━━━━━━━━━━━━
 {emoji} <b>XAU/USD</b>
 
 🔥 <b>{grade} {direction} SETUP</b>
-🏛 <i>Session: {session_info.get('session_name', 'London')}</i>
+🏛 <i>Session: {safe_html(session_info.get('session_name', 'London'))}</i>
 
 ━━━━━━━━━━━━━━━━━━━━━━
 📊 <b>Trend & Structure</b>
-{details.get('trend_str', 'Bullish')}
+{safe_html(details.get('trend_str', 'Bullish'))}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🎯 <b>Entry Zones</b>
-• Safe Entry: {trade_plan.get('safe_entry_zone', '')}
+• Safe Entry: {safe_html(trade_plan.get('safe_entry_zone', ''))}
 • Aggressive Entry: {trade_plan.get('aggressive_entry', 0):.2f}
 • Confirmation: {trade_plan.get('confirmation_entry', 0):.2f}
 
@@ -55,15 +69,15 @@ def format_trade_signal_card(
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🔄 <b>Alternative Scenario</b>
-{trade_plan.get('alt_plan_str', '')}
+{alt_scenario_safe}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 📈 <b>Long Term Alignment</b>
-{details.get('long_term_str', 'Bullish')}
+{safe_html(details.get('long_term_str', 'Bullish'))}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 ⚠ <b>Risk & R:R</b>
-{trade_plan['risk_level']} | Risk:Reward Ratio: 1:{trade_plan['risk_reward']}
+{safe_html(trade_plan['risk_level'])} | Risk:Reward Ratio: 1:{trade_plan['risk_reward']}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🧠 <b>AI Analysis</b>
@@ -79,8 +93,8 @@ Volume     {format_progress_bar(details.get('volume', 90))}
 Trend      {format_progress_bar(details.get('trend', 95))}
 
 Confidence Score: {calibrated_confidence}% (Hist. Win Rate: {win_rate_stat}%)
-🔍 <b>Pattern Match:</b> {pattern_match_info.get('match_percentage', 96.5)}% ({pattern_match_info.get('recent_cases_str', '')})
-🛡 <b>Self-Audit:</b> {self_audit_info.get('quality', 'APPROVED')}
+🔍 <b>Pattern Match:</b> {pattern_match_info.get('match_percentage', 96.5)}% ({safe_html(pattern_match_info.get('recent_cases_str', ''))})
+🛡 <b>Self-Audit:</b> {safe_html(self_audit_info.get('quality', 'APPROVED'))}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🔥 <b>Decision</b>
@@ -89,53 +103,69 @@ Confidence Score: {calibrated_confidence}% (Hist. Win Rate: {win_rate_stat}%)
     return msg
 
 def format_daily_market_report(report_data):
-    """Renders the Institutional Grade (v3.5) 60-100 Line Daily Market Report"""
+    """Renders the Institutional Grade (v3.5) 60-100 Line Daily Market Report (100% HTML Safe)"""
+    primary_direction = safe_html(report_data.get('primary_direction', 'BUY'))
+    daily_trend = safe_html(report_data.get('daily_trend', 'BULLISH'))
+    h4_structure = safe_html(report_data.get('h4_structure', 'BULLISH'))
+    h4_event = safe_html(report_data.get('h4_event', 'BOS Confirmed'))
+    session = safe_html(report_data.get('session', 'London / NY Overlap'))
+    regime = safe_html(report_data.get('regime', 'Trending'))
+    macro_summary = safe_html(report_data.get('macro_summary', 'Fed Rate Cut Expectations / Neutral'))
+    news_summary = safe_html(report_data.get('news_summary', 'Market monitoring economic catalysts.'))
+    corr_summary = safe_html(report_data.get('corr_summary', 'DXY dynamics aligned'))
+    ema_status = safe_html(report_data.get('ema_status', 'Price Above EMA20'))
+    rsi_bias = safe_html(report_data.get('rsi_bias', 'Neutral Momentum'))
+    psych_state = safe_html(report_data.get('psychology_state', 'Institutional Accumulation'))
+    alt_plan_str = safe_html(report_data.get('alt_plan_str', ''))
+
+    ai_text = safe_html(report_data.get('ai_summary', '• Daily and 4H structure aligned.'))
+
     msg = f"""━━━━━━━━━━━━━━━━━━━━━━
 📊 <b>XAU/USD DAILY INSTITUTIONAL REPORT</b>
-📅 <i>{report_data.get('date', '')}</i>
+📅 <i>{safe_html(report_data.get('date', ''))}</i>
 ━━━━━━━━━━━━━━━━━━━━━━
 
 💰 <b>Current Spot Price:</b> ${report_data.get('current_price', 0):.2f}
-📈 <b>Market Regime:</b> {report_data.get('regime', 'Trending')}
-🌍 <b>Trading Session:</b> {report_data.get('session', 'London / NY Overlap')}
+📈 <b>Market Regime:</b> {regime}
+🌍 <b>Trading Session:</b> {session}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 📊 <b>4H Market Structure Analysis</b>
-• Structure Bias: <b>{report_data.get('h4_structure', 'BULLISH')}</b>
-• Last Structural Event: {report_data.get('h4_event', 'BOS Confirmed')}
-• 4H Order Block: {report_data.get('h4_ob', 'Demand Zone Active')}
+• Structure Bias: <b>{h4_structure}</b>
+• Last Structural Event: {h4_event}
+• 4H Order Block: {safe_html(report_data.get('h4_ob', 'Demand Zone Active'))}
 • Nearest Liquidity Pool: ${report_data.get('h4_liquidity', 0):.2f}
-• Zone: {report_data.get('smc_zone', 'Discount')}
+• Zone: {safe_html(report_data.get('smc_zone', 'Discount'))}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 📊 <b>Daily Market Structure Analysis</b>
-• Daily Trend: <b>{report_data.get('daily_trend', 'BULLISH')}</b>
-• Structural High/Low: {report_data.get('daily_high_low', 'HH / HL Sequence')}
+• Daily Trend: <b>{daily_trend}</b>
+• Structural High/Low: {safe_html(report_data.get('daily_high_low', 'HH / HL Sequence'))}
 • Major Resistance: ${report_data.get('r1', 0):.2f}
 • Major Support: ${report_data.get('s1', 0):.2f}
-• Swing Bias: <b>{report_data.get('bias', 'BULLISH')}</b>
+• Swing Bias: <b>{safe_html(report_data.get('bias', 'BULLISH'))}</b>
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🏦 <b>Smart Money Concepts (SMC) & Microstructure</b>
-• Liquidity Sweeps: {report_data.get('liquidity_status', 'Equal Lows Swept')}
-• Volume Profile / RVOL: {report_data.get('rvol_status', '1.85x (High Vol. Absorption)')}
-• Psychology State: {report_data.get('psychology_state', 'Institutional Accumulation')}
+• Liquidity Sweeps: {safe_html(report_data.get('liquidity_status', 'Support Verified'))}
+• Volume Profile / RVOL: {safe_html(report_data.get('rvol_status', '1.85x RVOL'))}
+• Psychology State: {psych_state}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 📈 <b>Technical & Volatility Summary</b>
-• EMA Alignment: {report_data.get('ema_status', 'Price > EMA20 > EMA50')}
-• RSI (14): {report_data.get('rsi_val', 54.0):.1f} ({report_data.get('rsi_bias', 'Neutral Momentum')})
+• EMA Alignment: {ema_status}
+• RSI (14): {report_data.get('rsi_val', 54.0):.1f} ({rsi_bias})
 • ATR Volatility: ${report_data.get('atr_val', 12.5):.2f}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🌍 <b>Macro Outlook & News Sentiment</b>
-• Macro Backdrop: {report_data.get('macro_summary', 'Fed Rate Cut Expectations / Neutral')}
-• Top News Headline: {report_data.get('news_summary', 'Market monitoring economic catalysts.')}
-• Intermarket Correlation: {report_data.get('corr_summary', 'DXY Weakness supportive for Gold')}
+• Macro Backdrop: {macro_summary}
+• Top News Headline: {news_summary}
+• Intermarket Correlation: {corr_summary}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-🎯 <b>PRIMARY TRADE PLAN ({report_data.get('primary_direction', 'BUY')})</b>
-• Safe Entry Zone: {report_data.get('safe_entry_zone', '')}
+🎯 <b>PRIMARY TRADE PLAN ({primary_direction})</b>
+• Safe Entry Zone: {safe_html(report_data.get('safe_entry_zone', ''))}
 • Aggressive Entry: ${report_data.get('aggressive_entry', 0):.2f}
 • Confirmation Level: ${report_data.get('confirmation_entry', 0):.2f}
 • Stop Loss: ${report_data.get('stop_loss', 0):.2f}
@@ -147,28 +177,28 @@ def format_daily_market_report(report_data):
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🔄 <b>ALTERNATIVE SCENARIO PLAN</b>
-{report_data.get('alt_plan_str', 'If Stop Loss breaks on 4H close -> Invert Bias.')}
+{alt_plan_str}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 📅 <b>Today's High-Impact Economic Events</b>
-{report_data.get('economic_events', '• Clear of immediate high-impact news locks.')}
+{safe_html(report_data.get('economic_events', '• Clear of immediate high-impact news locks.'))}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 📈 <b>Historical Pattern Similarity & Confluence</b>
-• Confluence Score: <b>{report_data.get('confluence_score', 90):.1f}/100</b> ({report_data.get('grade', 'A+')})
+• Confluence Score: <b>{report_data.get('confluence_score', 90):.1f}/100</b> ({safe_html(report_data.get('grade', 'A+'))})
 • Calibrated Confidence: <b>{report_data.get('calibrated_confidence', 88):.1f}%</b>
-• Historical Pattern Match: <b>{report_data.get('pattern_match_pct', 96.5)}%</b> ({report_data.get('pattern_cases_str', '')})
+• Historical Pattern Match: <b>{report_data.get('pattern_match_pct', 96.5)}%</b> ({safe_html(report_data.get('pattern_cases_str', ''))})
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🧠 <b>AI Institutional Synthesis</b>
-{report_data.get('ai_summary', '• Daily and 4H structure aligned in strong bullish trend.')}
+{ai_text}
 
-⚠ <i>Educational overview & market breakdown. Risk Level: {report_data.get('risk_level', 'Medium')}. Not financial advice.</i>
+⚠ <i>Educational overview & market breakdown. Risk Level: {safe_html(report_data.get('risk_level', 'Medium'))}. Not financial advice.</i>
 ━━━━━━━━━━━━━━━━━━━━━━"""
     return msg
 
 def format_trade_update_card(update_info):
-    """Renders TP/SL hit updates"""
+    """Renders TP/SL hit updates (100% HTML Safe)"""
     utype = update_info['type']
     sig = update_info['signal']
     price = update_info['price']
@@ -191,26 +221,26 @@ def format_trade_update_card(update_info):
 
     return f"""━━━━━━━━━━━━━━━━━━━━━━
 {header}
-📍 <b>Symbol:</b> {sig['symbol']} ({sig['direction']})
+📍 <b>Symbol:</b> {safe_html(sig['symbol'])} ({safe_html(sig['direction'])})
 💲 <b>Current Price:</b> ${price:.2f}
-💡 <b>Action:</b> {action}
+💡 <b>Action:</b> {safe_html(action)}
 ━━━━━━━━━━━━━━━━━━━━━━"""
 
 def format_reversal_card(update_info):
-    """Renders Reversal / Invalidation alert"""
+    """Renders Reversal / Invalidation alert (100% HTML Safe)"""
     sig = update_info['signal']
     reason = update_info['reason']
     watch = update_info['new_watch']
 
     return f"""━━━━━━━━━━━━━━━━━━━━━━
-⚠️ <b>PREVIOUS {sig['direction']} INVALIDATED</b>
+⚠️ <b>PREVIOUS {safe_html(sig['direction'])} INVALIDATED</b>
 
 <b>Reason:</b>
-• {reason}
+• {safe_html(reason)}
 
 <b>Status:</b>
-{sig['direction']} Closed -> <b>{watch}</b>
+{safe_html(sig['direction'])} Closed -> <b>{safe_html(watch)}</b>
 ━━━━━━━━━━━━━━━━━━━━━━"""
 
 if __name__ == '__main__':
-    print("Telegram formatter v3.5 module ready.")
+    print("HTML-safe Telegram formatter ready.")

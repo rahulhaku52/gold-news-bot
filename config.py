@@ -13,12 +13,15 @@ GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_
 FINNHUB_KEY = os.environ.get('FINNHUB_KEY', '')
 ALPHA_VANTAGE_KEY = os.environ.get('ALPHA_VANTAGE_KEY', '')
 
+# Gemini Model Config
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')
+
 # Primary Symbols
 SYMBOL_GOLD_FUTURES = "GC=F"
 SYMBOL_GOLD_SPOT = "XAUUSD"
 SYMBOL_SILVER = "SI=F"
 SYMBOL_OIL = "CL=F"
-SYMBOL_DXY_TICKERS = ["DX-Y.NY", "UUP", "DX=F"]
+SYMBOL_DXY_TICKERS = ["UUP", "DX-Y.NY", "DX=F"]
 SYMBOL_DXY = "UUP" # Reliable USD Index ETF ticker on Yahoo
 SYMBOL_US10Y = "^TNX"
 SYMBOL_US2Y = "^IRX"

@@ -1,34 +1,58 @@
 import requests
 import time
+import urllib3
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
 import config
 
+# Disable urllib3 insecure request warnings for SSL fallback
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 def fetch_metals_live_price():
-    """Fetch spot gold from metals.live (free live endpoint)"""
+    """Fetch spot gold from metals.live or gold-api.com with SSL fallback"""
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+
+    # Primary metals.live endpoint
     try:
-        resp = requests.get("https://api.metals.live/v1/spot/gold", timeout=5)
+        resp = requests.get("https://api.metals.live/v1/spot/gold", headers=headers, timeout=5, verify=False)
         if resp.status_code == 200:
             data = resp.json()
             if isinstance(data, list) and len(data) > 0 and 'gold' in data[0]:
                 return float(data[0]['gold']), time.time()
             elif isinstance(data, dict) and 'price' in data:
                 return float(data['price']), time.time()
-    except Exception as e:
-        print(f"⚠️ metals.live fetch error: {e}")
+    except Exception:
+        pass
+
+    # Secondary gold-api.com fallback endpoint
+    try:
+        resp = requests.get("https://api.gold-api.com/price/XAU", headers=headers, timeout=5, verify=False)
+        if resp.status_code == 200:
+            data = resp.json()
+            if 'price' in data and data['price'] > 0:
+                return float(data['price']), time.time()
+    except Exception:
+        pass
+
     return None, None
 
 def fetch_yahoo_price(symbol=config.SYMBOL_GOLD_FUTURES):
-    """Fetch price from Yahoo Finance ticker"""
-    try:
-        ticker = yf.Ticker(symbol)
-        data = ticker.history(period="1d", interval="1m")
-        if not data.empty:
-            latest_price = float(data['Close'].iloc[-1])
-            return latest_price, time.time()
-    except Exception as e:
-        print(f"⚠️ Yahoo Finance price error ({symbol}): {e}")
+    """Fetch price from Yahoo Finance ticker with fallback tickers"""
+    symbols_to_try = [symbol]
+    if symbol == config.SYMBOL_DXY:
+        symbols_to_try = config.SYMBOL_DXY_TICKERS
+
+    for sym in symbols_to_try:
+        try:
+            ticker = yf.Ticker(sym)
+            data = ticker.history(period="1d", interval="1m")
+            if not data.empty and 'Close' in data:
+                latest_price = float(data['Close'].iloc[-1])
+                return latest_price, time.time()
+        except Exception:
+            continue
+
     return None, None
 
 def fetch_finnhub_price():
@@ -49,7 +73,7 @@ def fetch_finnhub_price():
 def fetch_all_spot_prices():
     """Collect spot gold prices from multiple independent sources with timestamps"""
     prices = {}
-    
+
     metals_price, metals_ts = fetch_metals_live_price()
     if metals_price:
         prices['metals_live'] = {'price': metals_price, 'timestamp': metals_ts}

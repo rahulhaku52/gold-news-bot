@@ -13,7 +13,7 @@ from engine import (
     macro_engine, news_risk_filter, news_engine, correlation_engine,
     market_psychology, performance_layer, pattern_matcher,
     confidence_calibrator, ai_reasoning, confluence_engine,
-    trade_planner, reversal_detector, signal_auditor
+    trade_planner, reversal_detector, signal_auditor, signal_gatekeeper
 )
 from formatter import telegram_formatter
 
@@ -56,16 +56,31 @@ def run_daily_market_report():
     global LAST_DAILY_REPORT_DATE
     today_str = datetime.utcnow().strftime("%Y-%m-%d")
 
-    # Fetch live price & multi-timeframe OHLCV
+    print("\n🔍 [DAILY REPORT] Fetching Real-Time Spot XAUUSD Price across independent spot sources...")
     spot_prices = multi_source.fetch_all_spot_prices()
-    consensus_price, valid, msg = validator.cross_validate_prices(spot_prices)
-    if not consensus_price:
-        p, _ = multi_source.fetch_yahoo_price(config.SYMBOL_GOLD_FUTURES)
-        consensus_price = p if p else 3380.0
+    consensus_price, price_valid, validation_msg = validator.cross_validate_prices(spot_prices)
 
-    df_daily = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_FUTURES, period="60d", interval="1d")
-    df_4h = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_FUTURES, period="30d", interval="1h")
-    df_15m = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_FUTURES, period="5d", interval="15m")
+    news_risk, news_risk_msg = news_risk_filter.is_economic_news_risk_window()
+
+    gatekeeper = signal_gatekeeper.verify_signal_gatekeeper(
+        consensus_price=consensus_price,
+        price_valid=price_valid,
+        validation_msg=validation_msg,
+        news_risk_active=news_risk,
+        confluence_score=90.0,
+        rr_ratio=2.0,
+        is_daily_report=True
+    )
+
+    if not gatekeeper['passed']:
+        print(f"⛔ GATEKEEPER BLOCKED DAILY REPORT DISPATCH: {gatekeeper['status_str']}")
+        return
+
+    print(f"✅ Real-Time Spot Gold Price Validated: ${consensus_price:.2f} ({validation_msg})")
+
+    df_daily = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_SPOT, period="60d", interval="1d")
+    df_4h = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_SPOT, period="30d", interval="1h")
+    df_15m = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_SPOT, period="5d", interval="15m")
 
     session_info = session_engine.get_current_trading_session()
     regime, weights = regime_engine.detect_market_regime(df_4h)
@@ -73,7 +88,7 @@ def run_daily_market_report():
     tf_dfs = {'1D': df_daily, '4H': df_4h, '15M': df_15m}
     overall_trend, tf_score, tf_trends = timeframe_engine.evaluate_multi_timeframe_alignment(tf_dfs)
 
-    # Computes 100% dynamic technicals & SMC directly anchored to consensus_price
+    # Computes 100% dynamic technicals & SMC directly anchored to validated consensus_price
     tech_res = technical_engine.compute_technical_indicators(df_daily, current_spot_price=consensus_price)
     struct_4h = market_structure.detect_market_structure(df_4h)
     struct_daily = market_structure.detect_market_structure(df_daily)
@@ -84,7 +99,6 @@ def run_daily_market_report():
     snapshot = multi_source.fetch_intermarket_snapshot()
     corr_res = correlation_engine.evaluate_intermarket_correlations(snapshot)
     psych_res = market_psychology.evaluate_market_psychology(df_15m, tech_res.get('rsi', 50), vol_res.get('rvol', 1.0), vol_res.get('is_absorption', False))
-
     pa_res = price_action.detect_candlestick_patterns(df_15m)
 
     conf_res = confluence_engine.compute_confluence_score(struct_4h, tech_res, smc_res, pa_res, macro_res, news_res, corr_res, weights)
@@ -108,11 +122,18 @@ def run_daily_market_report():
     primary_bullets, alt_scenario = ai_reasoning.generate_ai_reasoning_synthesis(summary_dict)
     ai_text = "\n".join([f"• {b.lstrip('•* ')}" for b in primary_bullets])
 
-    # Dynamic OB & Liquidity text
     h4_ob_str = f"${smc_res.get('equilibrium', consensus_price):.2f} ({smc_res.get('zone', 'Equilibrium')} Zone)"
     h4_liquidity = struct_4h.get('last_swing_high') if primary_direction == 'BUY' else struct_4h.get('last_swing_low')
     if not h4_liquidity:
         h4_liquidity = consensus_price + (atr_val * 2.0)
+
+    ema20_val = tech_res.get('ema20', consensus_price - 5.0)
+    if consensus_price > ema20_val:
+        ema_status_str = f"Price (${consensus_price:.2f}) Above EMA20 (${ema20_val:.2f})"
+    elif consensus_price < ema20_val:
+        ema_status_str = f"Price (${consensus_price:.2f}) Below EMA20 (${ema20_val:.2f})"
+    else:
+        ema_status_str = f"Price (${consensus_price:.2f}) At EMA20 (${ema20_val:.2f})"
 
     report_data = {
         'date': datetime.utcnow().strftime("%B %d, %Y"),
@@ -132,7 +153,7 @@ def run_daily_market_report():
         'liquidity_status': "Equal Lows Swept / Support Verified" if primary_direction == 'BUY' else "Equal Highs Swept / Resistance Verified",
         'rvol_status': f"{vol_res.get('rvol', 1.0)}x RVOL ({'Absorption Active' if vol_res.get('is_absorption') else 'Normal Liquidity'})",
         'psychology_state': psych_res.get('psychology_state', 'Institutional Accumulation'),
-        'ema_status': f"Price (${consensus_price:.1f}) > EMA20 (${tech_res.get('ema20', consensus_price):.1f})" if consensus_price > tech_res.get('ema20', consensus_price) else f"Price (${consensus_price:.1f}) < EMA20 (${tech_res.get('ema20', consensus_price):.1f})",
+        'ema_status': ema_status_str,
         'rsi_val': tech_res.get('rsi', 52.0),
         'rsi_bias': tech_res.get('rsi_bias', 'Neutral Momentum'),
         'atr_val': atr_val,
@@ -154,7 +175,7 @@ def run_daily_market_report():
         'confluence_score': conf_res['final_score'],
         'grade': conf_res['grade'],
         'calibrated_confidence': calibrated_confidence,
-        'pattern_match_pct': pattern_match.get('match_percentage', 96.5),
+        'pattern_match_pct': pattern_match.get('match_percentage', 0.0),
         'pattern_cases_str': pattern_match.get('recent_cases_str', ''),
         'ai_summary': ai_text,
         'risk_level': trade_plan.get('risk_level', 'Medium')
@@ -164,38 +185,33 @@ def run_daily_market_report():
     res = send_telegram(formatted_msg)
     if res.get('ok'):
         LAST_DAILY_REPORT_DATE = today_str
-        print("✅ Institutional Grade (v3.5) Daily Market Report posted successfully.")
+        print("✅ Gatekeeper Approved: Institutional Grade Daily Market Report posted successfully.")
     else:
         print(f"⚠️ Daily Report failed to post: {res}")
 
 def run_background_scan():
     """
-    Executes complete 22-Layer background scan.
+    Executes complete 22-Layer background scan with Signal Gatekeeper enforcement.
     """
     print(f"\n🔍 [SCAN {datetime.utcnow().strftime('%H:%M:%S')}] Starting 22-Layer Engine Scan...")
 
-    # Layer 1 & 2: Fetch & Cross-Validate Spot Prices
     spot_prices = multi_source.fetch_all_spot_prices()
-    consensus_price, valid, msg = validator.cross_validate_prices(spot_prices)
+    consensus_price, price_valid, validation_msg = validator.cross_validate_prices(spot_prices)
 
-    if not valid or not consensus_price:
-        print(f"⚠️ Scan Skipped: {msg}")
+    if not price_valid or not consensus_price:
+        print(f"⚠️ Scan Skipped: {validation_msg}")
         return
 
-    print(f"✅ Price Validated: ${consensus_price:.2f} ({msg})")
+    print(f"✅ Price Validated: ${consensus_price:.2f} ({validation_msg})")
 
-    # Layer 4: LuxAlgo Trading Sessions
     session_info = session_engine.get_current_trading_session()
     print(f"🏛 Session: {session_info['session_name']}")
 
-    # Fetch Multi-Timeframe Data
-    df_1h = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_FUTURES, period="10d", interval="1h")
-    df_15m = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_FUTURES, period="5d", interval="15m")
+    df_1h = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_SPOT, period="10d", interval="1h")
+    df_15m = multi_source.fetch_ohlcv_data(config.SYMBOL_GOLD_SPOT, period="5d", interval="15m")
 
-    # Layer 3: Market Regime & Session-Aware Weights
     regime, weights = regime_engine.detect_market_regime(df_1h)
 
-    # Layer 5 to 15: Timeframes, Indicators, Volume, SMC, PA, Macro, Risk Filter, News, Correlation, Psychology
     tf_dfs = {'1H': df_1h, '15M': df_15m}
     overall_trend, tf_score, tf_trends = timeframe_engine.evaluate_multi_timeframe_alignment(tf_dfs)
     tech_res = technical_engine.compute_technical_indicators(df_1h, current_spot_price=consensus_price)
@@ -212,7 +228,6 @@ def run_background_scan():
         df_15m, tech_res.get('rsi', 50), vol_res.get('rvol', 1.0), vol_res.get('is_absorption', False)
     )
 
-    # Monitor active trades for TP/SL hits or reversals
     updates = reversal_detector.evaluate_active_trades(consensus_price, struct_res.get('structure_bias'))
     for upd in updates:
         if upd['type'] == 'REVERSAL_INVALIDATED':
@@ -221,22 +236,18 @@ def run_background_scan():
             msg_card = telegram_formatter.format_trade_update_card(upd)
         send_telegram(msg_card)
 
-    # Layer 20: Dynamic Confluence Engine
     conf_res = confluence_engine.compute_confluence_score(
         struct_res, tech_res, smc_res, pa_res, macro_res, news_res, corr_res, weights
     )
 
-    # Add dynamic trend strings to details
     conf_res['details']['trend_str'] = f"{struct_res.get('structure_bias', 'Bullish')} ({struct_res.get('last_event', 'BOS')})"
     conf_res['details']['long_term_str'] = f"1H ({tf_trends.get('1H', 'Bullish')}) & 15M ({tf_trends.get('15M', 'Bullish')}) Alignment"
 
-    # Layer 16, 17 & 18: Historical DB, Pattern Matching & Confidence Calibration
     perf_stats = performance_layer.get_historical_performance_metrics()
-    win_rate = perf_stats.get('win_rate', 78.5)
+    win_rate = perf_stats.get('win_rate', 0.0)
     pattern_match = pattern_matcher.find_historical_pattern_matches(conf_res)
     calibrated_confidence = confidence_calibrator.calibrate_confidence_score(conf_res['final_score'])
 
-    # Layer 21: Trade Planning
     atr_val = tech_res.get('atr', 12.5)
     trade_plan = trade_planner.generate_trade_plan(
         consensus_price,
@@ -246,23 +257,30 @@ def run_background_scan():
         struct_res.get('last_swing_low')
     )
 
-    # Layer 22: Pre-Flight Self-Audit Checklist
     self_audit = signal_auditor.execute_pre_flight_self_audit(
         data_fresh=True,
-        price_valid=valid,
+        price_valid=price_valid,
         macro_conflict=False,
         news_risk=news_risk,
         rr_ratio=trade_plan.get('risk_reward', 1.5),
         confluence_score=conf_res['final_score']
     )
 
-    print(f"⚡ Raw Score: {conf_res['final_score']} | Calibrated Confidence: {calibrated_confidence}% | Grade: {conf_res['grade']} | Audit: {self_audit['quality']}")
+    gatekeeper = signal_gatekeeper.verify_signal_gatekeeper(
+        consensus_price=consensus_price,
+        price_valid=price_valid,
+        validation_msg=validation_msg,
+        news_risk_active=news_risk,
+        confluence_score=conf_res['final_score'],
+        rr_ratio=trade_plan.get('risk_reward', 1.5),
+        is_daily_report=False
+    )
 
-    # Dispatch Signal if approved by Self-Audit & Score Threshold
-    if self_audit['approved'] and conf_res['direction'] in ["BUY", "SELL"]:
+    print(f"⚡ Raw Score: {conf_res['final_score']} | Calibrated Confidence: {calibrated_confidence}% | Grade: {conf_res['grade']} | Gatekeeper: {gatekeeper['status_str']}")
+
+    if gatekeeper['passed'] and self_audit['approved'] and conf_res['direction'] in ["BUY", "SELL"]:
         active_trades = performance_db.get_active_signals()
         if not any(t['direction'] == conf_res['direction'] for t in active_trades):
-            # Layer 19: Dual-Scenario AI Synthesis
             summary_dict = {
                 'price': consensus_price,
                 'direction': conf_res['direction'],
@@ -275,7 +293,6 @@ def run_background_scan():
             }
             primary_bullets, alt_scenario = ai_reasoning.generate_ai_reasoning_synthesis(summary_dict)
 
-            # Save Signal to SQLite DB
             signal_data = {
                 'symbol': 'XAUUSD',
                 'direction': conf_res['direction'],
@@ -294,7 +311,6 @@ def run_background_scan():
             }
             performance_db.save_signal(signal_data)
 
-            # Render Telegram Signal Card
             signal_card = telegram_formatter.format_trade_signal_card(
                 trade_plan,
                 conf_res,
@@ -308,11 +324,11 @@ def run_background_scan():
             )
             res = send_telegram(signal_card)
             if res.get('ok'):
-                print("🔥 v3.5 Approved Trade Signal Card posted to Telegram!")
+                print("🔥 Gatekeeper Approved Trade Signal Card posted to Telegram!")
             else:
                 print(f"⚠️ Signal Card failed to post: {res}")
     else:
-        print(f"ℹ️ Signal Audit: {self_audit['quality']} (Score={conf_res['final_score']}). Continuous scan monitoring.")
+        print(f"ℹ️ Gatekeeper Status: {gatekeeper['status_str']}. Continuous scan monitoring active.")
 
 if __name__ == '__main__':
     run_background_scan()

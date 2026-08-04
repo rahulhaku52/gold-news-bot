@@ -6,14 +6,11 @@ import pandas as pd
 from datetime import datetime
 import config
 
-# Disable urllib3 insecure request warnings for SSL fallback
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def fetch_metals_live_price():
-    """Fetch spot gold from metals.live or gold-api.com with SSL fallback"""
+    """Fetch live spot XAUUSD gold price from metals.live API"""
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-
-    # Primary metals.live endpoint
     try:
         resp = requests.get("https://api.metals.live/v1/spot/gold", headers=headers, timeout=5, verify=False)
         if resp.status_code == 200:
@@ -24,8 +21,11 @@ def fetch_metals_live_price():
                 return float(data['price']), time.time()
     except Exception:
         pass
+    return None, None
 
-    # Secondary gold-api.com fallback endpoint
+def fetch_gold_api_price():
+    """Fetch live spot XAUUSD gold price from gold-api.com"""
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     try:
         resp = requests.get("https://api.gold-api.com/price/XAU", headers=headers, timeout=5, verify=False)
         if resp.status_code == 200:
@@ -34,11 +34,38 @@ def fetch_metals_live_price():
                 return float(data['price']), time.time()
     except Exception:
         pass
+    return None, None
 
+def fetch_goldprice_org():
+    """Fetch live spot XAUUSD gold price from data-asg.goldprice.org"""
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    try:
+        resp = requests.get("https://data-asg.goldprice.org/dbursa/XAUUSD", headers=headers, timeout=5, verify=False)
+        if resp.status_code == 200:
+            data = resp.json()
+            if 'items' in data and len(data['items']) > 0 and 'xauPrice' in data['items'][0]:
+                return float(data['items'][0]['xauPrice']), time.time()
+    except Exception:
+        pass
+    return None, None
+
+def fetch_yahoo_spot_price():
+    """Fetch live spot price using Yahoo Finance XAUUSD=X or GC=F ticker"""
+    tickers = ["XAUUSD=X", "GC=F"]
+    for sym in tickers:
+        try:
+            ticker = yf.Ticker(sym)
+            data = ticker.history(period="1d", interval="1m")
+            if not data.empty and 'Close' in data:
+                price = float(data['Close'].iloc[-1])
+                if price > 0:
+                    return price, time.time()
+        except Exception:
+            continue
     return None, None
 
 def fetch_yahoo_price(symbol=config.SYMBOL_GOLD_FUTURES):
-    """Fetch price from Yahoo Finance ticker with fallback tickers"""
+    """Generic Yahoo Finance price fetcher with ticker fallbacks"""
     symbols_to_try = [symbol]
     if symbol == config.SYMBOL_DXY:
         symbols_to_try = config.SYMBOL_DXY_TICKERS
@@ -55,36 +82,27 @@ def fetch_yahoo_price(symbol=config.SYMBOL_GOLD_FUTURES):
 
     return None, None
 
-def fetch_finnhub_price():
-    """Fetch gold spot price from Finnhub if API key is provided"""
-    if not config.FINNHUB_KEY:
-        return None, None
-    try:
-        url = f"https://finnhub.io/api/v1/quote?symbol=OANDA:XAU_USD&token={config.FINNHUB_KEY}"
-        resp = requests.get(url, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            if 'c' in data and data['c'] > 0:
-                return float(data['c']), time.time()
-    except Exception as e:
-        print(f"⚠️ Finnhub price error: {e}")
-    return None, None
-
 def fetch_all_spot_prices():
-    """Collect spot gold prices from multiple independent sources with timestamps"""
+    """
+    Collects live spot gold (XAUUSD) prices from 4 independent real-time spot sources.
+    """
     prices = {}
 
-    metals_price, metals_ts = fetch_metals_live_price()
-    if metals_price:
-        prices['metals_live'] = {'price': metals_price, 'timestamp': metals_ts}
+    m_price, m_ts = fetch_metals_live_price()
+    if m_price and m_price > 1000:
+        prices['metals_live'] = {'price': m_price, 'timestamp': m_ts}
 
-    yahoo_price, yahoo_ts = fetch_yahoo_price(config.SYMBOL_GOLD_FUTURES)
-    if yahoo_price:
-        prices['yahoo_futures'] = {'price': yahoo_price, 'timestamp': yahoo_ts}
+    g_price, g_ts = fetch_gold_api_price()
+    if g_price and g_price > 1000:
+        prices['gold_api'] = {'price': g_price, 'timestamp': g_ts}
 
-    finnhub_price, finnhub_ts = fetch_finnhub_price()
-    if finnhub_price:
-        prices['finnhub'] = {'price': finnhub_price, 'timestamp': finnhub_ts}
+    gp_price, gp_ts = fetch_goldprice_org()
+    if gp_price and gp_price > 1000:
+        prices['goldprice_org'] = {'price': gp_price, 'timestamp': gp_ts}
+
+    y_price, y_ts = fetch_yahoo_spot_price()
+    if y_price and y_price > 1000:
+        prices['yahoo_spot'] = {'price': y_price, 'timestamp': y_ts}
 
     return prices
 
@@ -117,6 +135,5 @@ def fetch_intermarket_snapshot():
     return snapshot
 
 if __name__ == '__main__':
-    print("Testing multi-source fetch...")
+    print("Testing 4-source spot price fetch...")
     print("Spot prices:", fetch_all_spot_prices())
-    print("Intermarket snapshot:", fetch_intermarket_snapshot())

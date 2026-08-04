@@ -16,7 +16,7 @@ def format_trade_signal_card(
     self_audit_info
 ):
     """
-    Renders the complete 22-Layer Gold AI Bot v3 Telegram Signal Card.
+    Renders the complete 22-Layer Gold AI Bot v3.5 Telegram Signal Card.
     """
     direction = trade_plan['direction']
     emoji = "🟢" if direction == "BUY" else "🔴"
@@ -32,16 +32,19 @@ def format_trade_signal_card(
 🏛 <i>Session: {session_info.get('session_name', 'London')}</i>
 
 ━━━━━━━━━━━━━━━━━━━━━━
-📊 <b>Trend</b>
+📊 <b>Trend & Structure</b>
 {details.get('trend_str', 'Bullish')}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-🎯 <b>Entry</b>
-{trade_plan['entry_zone_str']}
+🎯 <b>Entry Zones</b>
+• Safe Entry: {trade_plan.get('safe_entry_zone', '')}
+• Aggressive Entry: {trade_plan.get('aggressive_entry', 0):.2f}
+• Confirmation: {trade_plan.get('confirmation_entry', 0):.2f}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🛑 <b>Stop Loss</b>
-{trade_plan['stop_loss']:.2f} (Emergency SL: {trade_plan['emergency_sl']:.2f})
+• SL: {trade_plan['stop_loss']:.2f}
+• Emergency SL: {trade_plan['emergency_sl']:.2f}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🎯 <b>Targets</b>
@@ -51,18 +54,20 @@ def format_trade_signal_card(
 • Swing TP: {trade_plan['swing_tp']:.2f}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-📈 <b>Long Term</b>
+🔄 <b>Alternative Scenario</b>
+{trade_plan.get('alt_plan_str', '')}
+
+━━━━━━━━━━━━━━━━━━━━━━
+📈 <b>Long Term Alignment</b>
 {details.get('long_term_str', 'Bullish')}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 ⚠ <b>Risk & R:R</b>
-{trade_plan['risk_level']} | R:R Ratio: 1:{trade_plan['risk_reward']}
+{trade_plan['risk_level']} | Risk:Reward Ratio: 1:{trade_plan['risk_reward']}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-🧠 <b>AI Analysis (Primary Plan)</b>
+🧠 <b>AI Analysis</b>
 {ai_text}
-
-⚡ {alt_scenario}
 
 ━━━━━━━━━━━━━━━━━━━━━━
 📊 <b>Confluence & Microstructure</b>
@@ -84,27 +89,81 @@ Confidence Score: {calibrated_confidence}% (Hist. Win Rate: {win_rate_stat}%)
     return msg
 
 def format_daily_market_report(report_data):
-    """Renders the Daily 08:00 AM IST Market Overview"""
-    msg = f"""📊 <b>GOLD (XAUUSD) DAILY MARKET REPORT</b>
-📅 {report_data.get('date', '')}
+    """Renders the Institutional Grade (v3.5) 60-100 Line Daily Market Report"""
+    msg = f"""━━━━━━━━━━━━━━━━━━━━━━
+📊 <b>XAU/USD DAILY INSTITUTIONAL REPORT</b>
+📅 <i>{report_data.get('date', '')}</i>
+━━━━━━━━━━━━━━━━━━━━━━
+
+💰 <b>Current Spot Price:</b> ${report_data.get('current_price', 0):.2f}
+📈 <b>Market Regime:</b> {report_data.get('regime', 'Trending')}
+🌍 <b>Trading Session:</b> {report_data.get('session', 'London / NY Overlap')}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-📈 <b>Daily Trend:</b> {report_data.get('daily_trend', 'Bullish')}
-📊 <b>Long-Term (4H/1D):</b> {report_data.get('long_term', 'Bullish')}
-🌍 <b>Macro Outlook:</b> {report_data.get('macro_summary', 'Fed Dovish / Neutral')}
-📰 <b>News Summary:</b> {report_data.get('news_summary', 'Market watching inflation metrics.')}
+📊 <b>4H Market Structure Analysis</b>
+• Structure Bias: <b>{report_data.get('h4_structure', 'BULLISH')}</b>
+• Last Structural Event: {report_data.get('h4_event', 'BOS Confirmed')}
+• 4H Order Block: {report_data.get('h4_ob', 'Demand Zone Active')}
+• Nearest Liquidity Pool: ${report_data.get('h4_liquidity', 0):.2f}
+• Zone: {report_data.get('smc_zone', 'Discount')}
 
-🎯 <b>Key S&R Levels:</b>
-• Resistance 2: ${report_data.get('r2', 0):.2f}
-• Resistance 1: ${report_data.get('r1', 0):.2f}
-• Support 1: ${report_data.get('s1', 0):.2f}
-• Support 2: ${report_data.get('s2', 0):.2f}
+━━━━━━━━━━━━━━━━━━━━━━
+📊 <b>Daily Market Structure Analysis</b>
+• Daily Trend: <b>{report_data.get('daily_trend', 'BULLISH')}</b>
+• Structural High/Low: {report_data.get('daily_high_low', 'HH / HL Sequence')}
+• Major Resistance: ${report_data.get('r1', 0):.2f}
+• Major Support: ${report_data.get('s1', 0):.2f}
+• Swing Bias: <b>{report_data.get('bias', 'BULLISH')}</b>
 
-🎯 <b>Important Price Zones:</b> {report_data.get('price_zones', 'Demand 3340-3345 | Supply 3380-3385')}
-⚠ <b>Risk Level:</b> {report_data.get('risk_level', 'Medium')}
-🧠 <b>Overall Market Bias:</b> {report_data.get('bias', 'BULLISH')}
+━━━━━━━━━━━━━━━━━━━━━━
+🏦 <b>Smart Money Concepts (SMC) & Microstructure</b>
+• Liquidity Sweeps: {report_data.get('liquidity_status', 'Equal Lows Swept')}
+• Volume Profile / RVOL: {report_data.get('rvol_status', '1.85x (High Vol. Absorption)')}
+• Psychology State: {report_data.get('psychology_state', 'Institutional Accumulation')}
 
-<i>Educational overview. Not financial advice.</i>
+━━━━━━━━━━━━━━━━━━━━━━
+📈 <b>Technical & Volatility Summary</b>
+• EMA Alignment: {report_data.get('ema_status', 'Price > EMA20 > EMA50')}
+• RSI (14): {report_data.get('rsi_val', 54.0):.1f} ({report_data.get('rsi_bias', 'Neutral Momentum')})
+• ATR Volatility: ${report_data.get('atr_val', 12.5):.2f}
+
+━━━━━━━━━━━━━━━━━━━━━━
+🌍 <b>Macro Outlook & News Sentiment</b>
+• Macro Backdrop: {report_data.get('macro_summary', 'Fed Rate Cut Expectations / Neutral')}
+• Top News Headline: {report_data.get('news_summary', 'Market monitoring economic catalysts.')}
+• Intermarket Correlation: {report_data.get('corr_summary', 'DXY Weakness supportive for Gold')}
+
+━━━━━━━━━━━━━━━━━━━━━━
+🎯 <b>PRIMARY TRADE PLAN ({report_data.get('primary_direction', 'BUY')})</b>
+• Safe Entry Zone: {report_data.get('safe_entry_zone', '')}
+• Aggressive Entry: ${report_data.get('aggressive_entry', 0):.2f}
+• Confirmation Level: ${report_data.get('confirmation_entry', 0):.2f}
+• Stop Loss: ${report_data.get('stop_loss', 0):.2f}
+• Emergency SL: ${report_data.get('emergency_sl', 0):.2f}
+• TP1: ${report_data.get('tp1', 0):.2f}
+• TP2: ${report_data.get('tp2', 0):.2f}
+• TP3: ${report_data.get('tp3', 0):.2f}
+• Swing TP: ${report_data.get('swing_tp', 0):.2f}
+
+━━━━━━━━━━━━━━━━━━━━━━
+🔄 <b>ALTERNATIVE SCENARIO PLAN</b>
+{report_data.get('alt_plan_str', 'If Stop Loss breaks on 4H close -> Invert Bias.')}
+
+━━━━━━━━━━━━━━━━━━━━━━
+📅 <b>Today's High-Impact Economic Events</b>
+{report_data.get('economic_events', '• Clear of immediate high-impact news locks.')}
+
+━━━━━━━━━━━━━━━━━━━━━━
+📈 <b>Historical Pattern Similarity & Confluence</b>
+• Confluence Score: <b>{report_data.get('confluence_score', 90):.1f}/100</b> ({report_data.get('grade', 'A+')})
+• Calibrated Confidence: <b>{report_data.get('calibrated_confidence', 88):.1f}%</b>
+• Historical Pattern Match: <b>{report_data.get('pattern_match_pct', 96.5)}%</b> ({report_data.get('pattern_cases_str', '')})
+
+━━━━━━━━━━━━━━━━━━━━━━
+🧠 <b>AI Institutional Synthesis</b>
+{report_data.get('ai_summary', '• Daily and 4H structure aligned in strong bullish trend.')}
+
+⚠ <i>Educational overview & market breakdown. Risk Level: {report_data.get('risk_level', 'Medium')}. Not financial advice.</i>
 ━━━━━━━━━━━━━━━━━━━━━━"""
     return msg
 
@@ -154,4 +213,4 @@ def format_reversal_card(update_info):
 ━━━━━━━━━━━━━━━━━━━━━━"""
 
 if __name__ == '__main__':
-    print("Telegram formatter v3 module ready.")
+    print("Telegram formatter v3.5 module ready.")

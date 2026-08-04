@@ -107,7 +107,8 @@ def fetch_all_spot_prices():
     if f_price:
         prices['finnhub_spot'] = {'price': f_price, 'timestamp': f_ts}
 
-    print(f"🔍 DEBUG Spot Prices -> {', '.join([f'{k}: ${v['price']:.2f}' for k, v in prices.items()])}")
+    price_str = ", ".join([f"{k}: ${v['price']:.2f}" for k, v in prices.items()])
+    print(f"🔍 DEBUG Spot Prices -> {price_str}")
 
     # Outlier Filtering: Calculate median of raw prices
     if len(prices) >= 2:

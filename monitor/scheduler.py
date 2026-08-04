@@ -20,23 +20,35 @@ from formatter import telegram_formatter
 LAST_DAILY_REPORT_DATE = None
 
 def send_telegram(text):
-    """Sends HTML formatted message to Telegram Channel"""
-    if not config.BOT_TOKEN or not config.CHANNEL_ID:
-        print("⚠️ BOT_TOKEN or CHANNEL_ID not configured. Skipping Telegram send.")
-        print(f"--- MOCK TELEGRAM OUTPUT ---\n{text}\n---------------------------")
-        return {"ok": True, "mock": True}
+    """Sends HTML formatted message to Telegram Channel with detailed diagnostic logging"""
+    token = config.BOT_TOKEN
+    channel = config.CHANNEL_ID
 
-    url = f"https://api.telegram.org/bot{config.BOT_TOKEN}/sendMessage"
+    if not token or not channel:
+        print("❌ Telegram Configuration Warning: BOT_TOKEN or CHANNEL_ID secret is empty or missing in environment variables.")
+        print(f"   - BOT_TOKEN provided: {'YES' if token else 'NO'}")
+        print(f"   - CHANNEL_ID provided: {'YES' if channel else 'NO'}")
+        print("   -> Please set BOT_TOKEN and CHANNEL_ID in GitHub Repository Secrets.")
+        print(f"--- MOCK TELEGRAM OUTPUT ---\n{text}\n---------------------------")
+        return {"ok": False, "reason": "missing_secrets"}
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
     try:
         resp = requests.post(url, json={
-            "chat_id": config.CHANNEL_ID,
+            "chat_id": channel,
             "text": text,
             "parse_mode": "HTML",
             "disable_web_page_preview": True
         }, timeout=10)
-        return resp.json()
+        res_data = resp.json()
+        if res_data.get('ok'):
+            print(f"✅ Telegram Message successfully posted to {channel}!")
+        else:
+            print(f"❌ Telegram API Error response from Telegram server: {res_data}")
+            print(f"   -> Check if bot token is valid and bot is an Admin in channel '{channel}'.")
+        return res_data
     except Exception as e:
-        print(f"❌ Telegram send error: {e}")
+        print(f"❌ Telegram HTTP post error: {e}")
         return {"ok": False, "error": str(e)}
 
 def run_daily_market_report():
@@ -48,7 +60,6 @@ def run_daily_market_report():
     spot_prices = multi_source.fetch_all_spot_prices()
     consensus_price, valid, msg = validator.cross_validate_prices(spot_prices)
     if not consensus_price:
-        # Fallback to yahoo live ticker
         p, _ = multi_source.fetch_yahoo_price(config.SYMBOL_GOLD_FUTURES)
         consensus_price = p if p else 3380.0
 
@@ -154,6 +165,8 @@ def run_daily_market_report():
     if res.get('ok'):
         LAST_DAILY_REPORT_DATE = today_str
         print("✅ Institutional Grade (v3.5) Daily Market Report posted successfully.")
+    else:
+        print(f"⚠️ Daily Report failed to post: {res}")
 
 def run_background_scan():
     """
@@ -296,6 +309,8 @@ def run_background_scan():
             res = send_telegram(signal_card)
             if res.get('ok'):
                 print("🔥 v3.5 Approved Trade Signal Card posted to Telegram!")
+            else:
+                print(f"⚠️ Signal Card failed to post: {res}")
     else:
         print(f"ℹ️ Signal Audit: {self_audit['quality']} (Score={conf_res['final_score']}). Continuous scan monitoring.")
 

@@ -6,11 +6,10 @@ try:
 except ImportError:
     pass
 
-
-# Environment Credentials
-BOT_TOKEN = os.environ.get('BOT_TOKEN', '')
-CHANNEL_ID = os.environ.get('CHANNEL_ID', '')
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+# Environment Credentials (support multiple common secret names)
+BOT_TOKEN = os.environ.get('BOT_TOKEN') or os.environ.get('TELEGRAM_BOT_TOKEN', '')
+CHANNEL_ID = os.environ.get('CHANNEL_ID') or os.environ.get('TELEGRAM_CHAT_ID') or os.environ.get('TELEGRAM_CHANNEL_ID', '')
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY') or os.environ.get('GOOGLE_API_KEY', '')
 FINNHUB_KEY = os.environ.get('FINNHUB_KEY', '')
 ALPHA_VANTAGE_KEY = os.environ.get('ALPHA_VANTAGE_KEY', '')
 
@@ -19,7 +18,8 @@ SYMBOL_GOLD_FUTURES = "GC=F"
 SYMBOL_GOLD_SPOT = "XAUUSD"
 SYMBOL_SILVER = "SI=F"
 SYMBOL_OIL = "CL=F"
-SYMBOL_DXY = "DX-Y.NY"
+SYMBOL_DXY_TICKERS = ["DX-Y.NY", "UUP", "DX=F"]
+SYMBOL_DXY = "UUP" # Reliable USD Index ETF ticker on Yahoo
 SYMBOL_US10Y = "^TNX"
 SYMBOL_US2Y = "^IRX"
 SYMBOL_SPX = "^GSPC"
